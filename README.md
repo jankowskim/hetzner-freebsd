@@ -187,7 +187,7 @@ hcloud server create \
 
 ### Using Terraform (included)
 
-This project includes a Terraform configuration that deploys a server from the Packer snapshot. It provisions the snapshot, registers your SSH key, and creates a Hetzner Cloud firewall with rules for SSH, HTTP/HTTPS, STUN/TURN, and ICMP.
+This project includes a Terraform configuration that deploys a server from the Packer snapshot. It provisions the snapshot, registers your SSH key, and creates a Hetzner Cloud firewall with SSH and ICMP rules (additional ports are configurable via `firewall_rules`).
 
 ```bash
 export TF_VAR_hcloud_token="your-token-here"
@@ -215,20 +215,43 @@ terraform output ssh_command
 | `ssh_public_key_path` | `~/.ssh/id_ed25519.pub` | Path to SSH public key file |
 | `ssh_port` | `22` | SSH port (must match the port baked into the snapshot) |
 | `snapshot_name` | `""` | Exact snapshot name to use; if empty, uses the most recent snapshot labeled `freebsd-snapshot=yes` |
+| `firewall_rules` | `[]` | Additional inbound firewall rules (list of `{ protocol, port, source_ips }`) |
 
 #### Firewall Rules
 
-The Terraform firewall (`hcloud_firewall`) opens the following inbound ports:
+The Terraform firewall (`hcloud_firewall`) always includes **SSH** and **ICMP** rules. Additional service ports are configured via the `firewall_rules` variable.
 
-| Port | Protocol | Purpose |
-|------|----------|---------|
-| `ssh_port` (default 22) | TCP | SSH access |
-| 80 | TCP | HTTP |
-| 443 | TCP | HTTPS |
-| 3478 | TCP + UDP | STUN/TURN |
-| 5349 | TCP | TURNS (TLS) |
-| 49152-55000 | UDP | TURN relay range (must match coturn `min-port`/`max-port`) |
-| — | ICMP | Ping |
+By default no extra ports are opened. To add rules, set `firewall_rules` in your `terraform.tfvars`:
+
+```hcl
+firewall_rules = [
+  { protocol = "tcp", port = "80" },
+  { protocol = "tcp", port = "443" },
+]
+```
+
+Each entry accepts `protocol` (tcp/udp), `port` (single port or range), and an optional `source_ips` (defaults to `["0.0.0.0/0", "::/0"]`). To restrict a rule to specific sources:
+
+```hcl
+firewall_rules = [
+  { protocol = "tcp", port = "443", source_ips = ["10.0.0.0/8"] },
+]
+```
+
+##### WebRTC / TURN Example
+
+If you are running a WebRTC application with [coturn](https://github.com/coturn/coturn) in a jail, open the following ports:
+
+```hcl
+firewall_rules = [
+  { protocol = "tcp", port = "80" },          # HTTP
+  { protocol = "tcp", port = "443" },         # HTTPS
+  { protocol = "tcp", port = "3478" },        # STUN/TURN TCP
+  { protocol = "udp", port = "3478" },        # STUN/TURN UDP
+  { protocol = "tcp", port = "5349" },        # TURNS (TLS)
+  { protocol = "udp", port = "49152-55000" }, # TURN relay range (must match coturn min-port/max-port)
+]
+```
 
 All outbound traffic is allowed by the Hetzner Cloud default. These rules complement the PF firewall running inside the snapshot — both must allow a port for traffic to reach a service.
 

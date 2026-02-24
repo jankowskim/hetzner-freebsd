@@ -36,59 +36,22 @@ resource "hcloud_firewall" "jail_server" {
     source_ips = ["0.0.0.0/0", "::/0"]
   }
 
-  # HTTP
-  rule {
-    direction  = "in"
-    protocol   = "tcp"
-    port       = "80"
-    source_ips = ["0.0.0.0/0", "::/0"]
-  }
-
-  # HTTPS
-  rule {
-    direction  = "in"
-    protocol   = "tcp"
-    port       = "443"
-    source_ips = ["0.0.0.0/0", "::/0"]
-  }
-
-  # STUN/TURN TCP
-  rule {
-    direction  = "in"
-    protocol   = "tcp"
-    port       = "3478"
-    source_ips = ["0.0.0.0/0", "::/0"]
-  }
-
-  # STUN/TURN UDP
-  rule {
-    direction  = "in"
-    protocol   = "udp"
-    port       = "3478"
-    source_ips = ["0.0.0.0/0", "::/0"]
-  }
-
-  # TURNS (TLS)
-  rule {
-    direction  = "in"
-    protocol   = "tcp"
-    port       = "5349"
-    source_ips = ["0.0.0.0/0", "::/0"]
-  }
-
-  # TURN relay UDP range (must match coturn min-port/max-port)
-  rule {
-    direction  = "in"
-    protocol   = "udp"
-    port       = "49152-55000"
-    source_ips = ["0.0.0.0/0", "::/0"]
-  }
-
   # ICMP
   rule {
     direction  = "in"
     protocol   = "icmp"
     source_ips = ["0.0.0.0/0", "::/0"]
+  }
+
+  # Additional service ports (configurable via var.firewall_rules)
+  dynamic "rule" {
+    for_each = var.firewall_rules
+    content {
+      direction  = "in"
+      protocol   = rule.value.protocol
+      port       = rule.value.port
+      source_ips = rule.value.source_ips
+    }
   }
 }
 

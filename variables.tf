@@ -43,3 +43,13 @@ variable "snapshot_name" {
   default     = ""
   description = "Exact snapshot name to use. If empty, uses the most recent snapshot with label freebsd-snapshot=yes"
 }
+
+variable "firewall_rules" {
+  type = list(object({
+    protocol   = string
+    port       = string
+    source_ips = optional(list(string), ["0.0.0.0/0", "::/0"])
+  }))
+  default = []
+  description = "Additional firewall rules (beyond SSH and ICMP which are always included)"
+}
